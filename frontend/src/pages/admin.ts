@@ -247,11 +247,23 @@ function renderAttachmentManager(body: HTMLElement, device: Device, attachments:
   const uploadRow = el('div', { className: 'form-group flex gap-2 items-center' });
   const fileInput = el('input');
   fileInput.type = 'file';
+  fileInput.accept = '.pdf,.jpg,.jpeg,.png,.webp,.gif,.doc,.docx';
   const uploadBtn = el('button', { className: 'btn btn-outline btn-sm', text: '上传附件' });
   uploadBtn.addEventListener('click', async () => {
     const file = fileInput.files?.[0];
     if (!file) {
       alert('请先选择文件');
+      return;
+    }
+    const MAX_SIZE = 10 * 1024 * 1024;
+    const ALLOWED = ['pdf', 'jpg', 'jpeg', 'png', 'webp', 'gif', 'doc', 'docx'];
+    const ext = file.name.split('.').pop()?.toLowerCase() || '';
+    if (file.size > MAX_SIZE || file.size === 0) {
+      alert('文件大小不能超过 10MB');
+      return;
+    }
+    if (!ALLOWED.includes(ext)) {
+      alert('不支持的文件类型');
       return;
     }
     uploadBtn.disabled = true;

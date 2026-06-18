@@ -92,8 +92,15 @@ files.delete('/:id', adminAuth, async (c) => {
     return c.json({ error: '附件不存在' }, 404);
   }
 
-  await c.env.BUCKET.delete(att.r2_key);
+  // 先删 DB 记录，保证数据一致性
   await c.env.DB.prepare('DELETE FROM attachments WHERE id = ?').bind(id).run();
+
+  // best-effort 删 R2 文件，失败不影响响应
+  try {
+    await c.env.BUCKET.delete(att.r2_key);
+  } catch {
+    // R2 删除失败，日志可记录，但不影响客户端响应
+  }
 
   return c.json({ message: '删除成功' });
 });

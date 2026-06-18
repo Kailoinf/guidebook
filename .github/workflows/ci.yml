@@ -102,22 +102,30 @@ jobs:
         run: pnpm build
 
       # ---- 部署后端到 Cloudflare Workers ----
-      # secrets 未配置时优雅跳过（用 if 判断是否存在）
+      # secrets 未配置时优雅跳过（bash 内部判断，避免 step if 中直接引用 secrets）
       - name: Deploy backend to Cloudflare Workers
-        if: ${{ secrets.CLOUDFLARE_API_TOKEN != '' && secrets.JWT_SECRET != '' && secrets.ADMIN_PASSWORD != '' }}
         working-directory: backend
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-        # 复用 backend 已安装的 wrangler（无独立 build；Workers 边缘编译）
-        run: npx wrangler deploy --var JWT_SECRET:${{ secrets.JWT_SECRET }} --var ADMIN_PASSWORD:${{ secrets.ADMIN_PASSWORD }}
+          JWT_SECRET: ${{ secrets.JWT_SECRET }}
+          ADMIN_PASSWORD: ${{ secrets.ADMIN_PASSWORD }}
+        run: |
+          if [ -z "$CLOUDFLARE_API_TOKEN" ] || [ -z "$JWT_SECRET" ] || [ -z "$ADMIN_PASSWORD" ]; then
+            echo "Skipped: required secrets not configured"
+            exit 0
+          fi
+          npx wrangler deploy --var JWT_SECRET:"$JWT_SECRET" --var ADMIN_PASSWORD:"$ADMIN_PASSWORD"
 
       # ---- 部署前端到 Cloudflare Pages ----
       - name: Deploy frontend to Cloudflare Pages
-        if: ${{ secrets.CLOUDFLARE_API_TOKEN != '' }}
         working-directory: backend
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-        # 复用 backend 已安装的 wrangler，部署 ../frontend/dist → Pages 项目 guidebook
-        run: npx wrangler pages deploy ../frontend/dist --project-name=guidebook
+        run: |
+          if [ -z "$CLOUDFLARE_API_TOKEN" ]; then
+            echo "Skipped: CLOUDFLARE_API_TOKEN not configured"
+            exit 0
+          fi
+          npx wrangler pages deploy ../frontend/dist --project-name=guidebook

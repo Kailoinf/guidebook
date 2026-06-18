@@ -9,7 +9,7 @@ const app = new Hono<{ Bindings: Env }>();
 
 // CORS —— 允许前端域名访问
 app.use('/api/*', cors({
-  origin: (origin) => origin, // 部署时可改为具体域名
+  origin: (_, c) => c.env.FRONTEND_URL,
   allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowHeaders: ['Content-Type', 'Authorization'],
 }));

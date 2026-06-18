@@ -2,6 +2,17 @@ import { Hono } from 'hono';
 import type { Env, Attachment } from '../types';
 import { adminAuth } from '../middleware/auth';
 
+const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+const ALLOWED_MIME_TYPES = [
+  'application/pdf',
+  'image/jpeg',
+  'image/png',
+  'image/webp',
+  'image/gif',
+  'application/msword',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+];
+
 const files = new Hono<{ Bindings: Env }>();
 
 // POST /api/files/:deviceId —— 上传附件（管理员）
@@ -14,6 +25,16 @@ files.post('/:deviceId', adminAuth, async (c) => {
     return c.json({ error: '未提供文件' }, 400);
   }
 
+  // 检查文件大小
+  if (file.size > MAX_FILE_SIZE) {
+    return c.json({ error: `文件大小不能超过 ${MAX_FILE_SIZE / 1024 / 1024}MB` }, 400);
+  }
+
+  // 检查文件类型
+  if (!ALLOWED_MIME_TYPES.includes(file.type)) {
+    return c.json({ error: `不支持的文件类型: ${file.type || '未知'}` }, 400);
+  }
+
   // 检查设备是否存在
   const device = await c.env.DB.prepare('SELECT id FROM devices WHERE id = ?')
     .bind(deviceId).first();
@@ -22,7 +43,8 @@ files.post('/:deviceId', adminAuth, async (c) => {
   }
 
   const id = crypto.randomUUID();
-  const ext = file.name.split('.').pop() || 'bin';
+  const parts = file.name.split('.');
+  const ext = parts.length < 2 || file.name.startsWith('.') ? 'bin' : parts.pop()!;
   const r2Key = `attachments/${deviceId}/${id}.${ext}`;
 
   // 上传到 R2

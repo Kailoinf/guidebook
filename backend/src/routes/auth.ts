@@ -82,7 +82,7 @@ auth.post('/login', async (c) => {
   // 登录成功 —— 清除失败记录
   await clearRateLimit(c.env.DB, ip);
 
-  const token = await sign({ role: 'admin' }, c.env.JWT_SECRET, 24);
+  const token = await sign({ sub: 'admin', role: 'admin' }, c.env.JWT_SECRET, 24);
   return c.json({ token, message: '登录成功' });
 });
 

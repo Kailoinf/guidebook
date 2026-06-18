@@ -65,6 +65,7 @@ devices.get('/:id', async (c) => {
     'SELECT id, filename, mime_type, size FROM attachments WHERE device_id = ?'
   ).bind(id).all();
 
+  c.header('Cache-Control', 'public, max-age=60');
   return c.json({ device, attachments: attachments.results });
 });
 

@@ -52,7 +52,6 @@ export async function verify(token: string, secret: string): Promise<object | nu
 
   const data = `${parts[0]}.${parts[1]}`;
   const key = await getKey(secret);
-  const sigBuf = await base64UrlDecode(parts[2]);
 
   // 用 base64url 解码签名
   const sigStr = parts[2].replace(/-/g, '+').replace(/_/g, '/');

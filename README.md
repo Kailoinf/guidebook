@@ -15,7 +15,7 @@
 | 层 | 技术 |
 |----|------|
 | 后端 | Cloudflare Workers + Hono |
-| 前端 | Vue 3 + Vite |
+| 前端 | TypeScript + Vite |
 | 数据库 | Cloudflare D1 (SQLite) |
 | 存储 | Cloudflare R2 |
 | 认证 | JWT |

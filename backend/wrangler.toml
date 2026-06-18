@@ -1,0 +1,31 @@
+name = "guidebook-api"
+main = "src/index.ts"
+compatibility_date = "2024-09-23"
+compatibility_flags = ["nodejs_compat"]
+
+# ============================================
+#  部署前需要修改以下配置（wrangler.toml 不上传 secrets）
+# ============================================
+
+# D1 数据库 — 创建后填入 database_id
+[[d1_databases]]
+binding = "DB"
+database_name = "guidebook-db"
+database_id = "XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX"
+
+# R2 对象存储 — 存说明书文件
+[[r2_buckets]]
+binding = "BUCKET"
+bucket_name = "guidebook-files"
+
+# 环境变量（非敏感）
+[vars]
+FRONTEND_URL = "https://guidebook.pages.dev"
+# JWT_SECRET 和 ADMIN_PASSWORD 用 wrangler secret put 设置，不要写在这里
+
+# 开发环境
+[env.dev]
+[[env.dev.d1_databases]]
+binding = "DB"
+database_name = "guidebook-db-dev"
+database_id = "XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX"

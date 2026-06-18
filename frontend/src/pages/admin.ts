@@ -27,8 +27,21 @@ export async function renderAdmin(container: HTMLElement): Promise<void> {
 
   try {
     await authApi.verify();
-  } catch {
-    navigate('#/login');
+  } catch (e) {
+    if (e instanceof ApiError && e.status === 401) {
+      navigate('#/login');
+      return;
+    }
+    // 网络错误等非 401 错误，显示错误提示和重试按钮
+    root.innerHTML = '';
+    const errorCard = el('div', { className: 'card text-center' });
+    errorCard.appendChild(
+      el('div', { className: 'alert alert-error', text: (e as Error).message || '网络错误，无法连接到服务器' })
+    );
+    const retryBtn = el('button', { className: 'btn btn-cta mt-4', text: '重试' });
+    retryBtn.addEventListener('click', () => renderAdmin(container));
+    errorCard.appendChild(retryBtn);
+    root.appendChild(errorCard);
     return;
   }
   await renderList(container);

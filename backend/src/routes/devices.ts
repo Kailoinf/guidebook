@@ -109,7 +109,7 @@ devices.delete('/:id', adminAuth, async (c) => {
 // GET /api/devices/:id/qrcode —— 获取二维码（返回 URL，前端生成或后端生成 SVG）
 devices.get('/:id/qrcode', adminAuth, async (c) => {
   const id = c.req.param('id');
-  const url = `${c.env.FRONTEND_URL}/d/${id}`;
+  const url = `${c.env.FRONTEND_URL}/#/d/${id}`;
   return c.json({ id, url, qrcode_url: url });
 });
 

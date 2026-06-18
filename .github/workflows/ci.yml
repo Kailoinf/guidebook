@@ -1,0 +1,123 @@
+name: CI/CD
+
+# ─────────────────────────────────────────────────────────────
+#  guidebook CI/CD
+#  - CI  job : typecheck (backend) + typecheck & build (frontend),  所有分支/PR 跑
+#  - Deploy  : 仅 push 到 main 时，CI 通过后部署到 Cloudflare (Workers + Pages)
+# ─────────────────────────────────────────────────────────────
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# 同一分支的新 run 取消旧 run；main 分支不取消以保证部署串行
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+jobs:
+  # ──────────────────────────── CI ────────────────────────────
+  ci:
+    name: Typecheck & Build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm@11.8.0
+        uses: pnpm/action-setup@v3
+        with:
+          version: 11.8.0
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: pnpm
+          # 无根 package.json，显式指向前后端 lockfile（提交后即可启用缓存）
+          cache-dependency-path: |
+            backend/pnpm-lock.yaml
+            frontend/pnpm-lock.yaml
+
+      # ---- Backend：Hono + Workers，只需类型检查（无 build 步骤） ----
+      - name: Install backend dependencies
+        working-directory: backend
+        run: pnpm install
+
+      - name: Backend typecheck (tsc --noEmit)
+        working-directory: backend
+        run: pnpm exec tsc --noEmit
+
+      # ---- Frontend：Vite，typecheck + 构建 dist/ ----
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: pnpm install
+
+      - name: Frontend typecheck & build
+        working-directory: frontend
+        # build 脚本 = tsc --noEmit && vite build
+        run: pnpm build
+
+  # ────────────────────────── Deploy ──────────────────────────
+  deploy:
+    name: Deploy to Cloudflare
+    needs: ci
+    # 仅 main 分支的 push 触发（PR 永不部署）
+    if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm@11.8.0
+        uses: pnpm/action-setup@v3
+        with:
+          version: 11.8.0
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: pnpm
+          cache-dependency-path: |
+            backend/pnpm-lock.yaml
+            frontend/pnpm-lock.yaml
+
+      - name: Install backend dependencies
+        working-directory: backend
+        run: pnpm install
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: pnpm install
+
+      - name: Build frontend (dist/)
+        working-directory: frontend
+        run: pnpm build
+
+      # ---- 部署后端到 Cloudflare Workers ----
+      # secrets 未配置时优雅跳过（用 if 判断是否存在）
+      - name: Deploy backend to Cloudflare Workers
+        if: ${{ secrets.CLOUDFLARE_API_TOKEN != '' && secrets.JWT_SECRET != '' && secrets.ADMIN_PASSWORD != '' }}
+        working-directory: backend
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        # 复用 backend 已安装的 wrangler（无独立 build；Workers 边缘编译）
+        run: npx wrangler deploy --var JWT_SECRET:${{ secrets.JWT_SECRET }} --var ADMIN_PASSWORD:${{ secrets.ADMIN_PASSWORD }}
+
+      # ---- 部署前端到 Cloudflare Pages ----
+      - name: Deploy frontend to Cloudflare Pages
+        if: ${{ secrets.CLOUDFLARE_API_TOKEN != '' }}
+        working-directory: backend
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        # 复用 backend 已安装的 wrangler，部署 ../frontend/dist → Pages 项目 guidebook
+        run: npx wrangler pages deploy ../frontend/dist --project-name=guidebook

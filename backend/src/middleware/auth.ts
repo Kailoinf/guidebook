@@ -2,8 +2,18 @@ import type { MiddlewareHandler } from 'hono';
 import type { Env } from '../types';
 import { verify } from '../utils/jwt';
 
+export interface AdminPayload {
+  sub: string;
+  iat: number;
+  exp: number;
+  [key: string]: unknown;
+}
+
 // 管理员认证中间件 — 校验 Authorization Bearer token
-export const adminAuth: MiddlewareHandler<{ Bindings: Env }> = async (c, next) => {
+export const adminAuth: MiddlewareHandler<{
+  Bindings: Env;
+  Variables: { admin: AdminPayload };
+}> = async (c, next) => {
   const authHeader = c.req.header('Authorization') || '';
   const match = authHeader.match(/^Bearer\s+(.+)$/i);
 
@@ -16,6 +26,6 @@ export const adminAuth: MiddlewareHandler<{ Bindings: Env }> = async (c, next) =
     return c.json({ error: 'Token 无效或已过期' }, 401);
   }
 
-  c.set('admin', payload as never);
+  c.set('admin', payload as AdminPayload);
   await next();
 };

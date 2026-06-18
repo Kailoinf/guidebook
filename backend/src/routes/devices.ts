@@ -9,6 +9,42 @@ function uuid(): string {
   return crypto.randomUUID();
 }
 
+// 字段验证（POST 和 PUT 共用）
+function validateDevice(body: Record<string, unknown>): string | null {
+  const name = typeof body.name === 'string' ? body.name.trim() : '';
+
+  // name 非空
+  if (!name) {
+    return '设备名称不能为空';
+  }
+
+  // 短字段长度限制
+  const shortFields = ['name', 'model', 'category', 'location'] as const;
+  for (const field of shortFields) {
+    const val = typeof body[field] === 'string' ? body[field] : '';
+    if (val.length > 200) {
+      return `${field} 不能超过 200 个字符`;
+    }
+  }
+
+  // purchase_date 格式验证（非空时必须为 YYYY-MM-DD）
+  const pd = typeof body.purchase_date === 'string' ? body.purchase_date.trim() : '';
+  if (pd && !/^\d{4}-\d{2}-\d{2}$/.test(pd)) {
+    return 'purchase_date 格式必须为 YYYY-MM-DD';
+  }
+
+  // 长文本字段长度限制
+  const longFields = ['description', 'usage_guide', 'precautions', 'maintenance'] as const;
+  for (const field of longFields) {
+    const val = typeof body[field] === 'string' ? body[field] : '';
+    if (val.length > 10000) {
+      return `${field} 不能超过 10000 个字符`;
+    }
+  }
+
+  return null;
+}
+
 // ============================================
 //  公开接口：扫码查看（无需认证）
 // ============================================
@@ -51,8 +87,9 @@ devices.post('/', adminAuth, async (c) => {
 
   const { name, model, category, location, purchase_date, description, usage_guide, precautions, maintenance } = body;
 
-  if (!name) {
-    return c.json({ error: '设备名称不能为空' }, 400);
+  const err = validateDevice(body);
+  if (err) {
+    return c.json({ error: err }, 400);
   }
 
   await c.env.DB.prepare(
@@ -70,6 +107,11 @@ devices.put('/:id', adminAuth, async (c) => {
   const body = await c.req.json();
 
   const { name, model, category, location, purchase_date, description, usage_guide, precautions, maintenance } = body;
+
+  const err = validateDevice(body);
+  if (err) {
+    return c.json({ error: err }, 400);
+  }
 
   const result = await c.env.DB.prepare(
     `UPDATE devices SET

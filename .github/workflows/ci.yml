@@ -33,10 +33,10 @@ jobs:
         with:
           version: 11.8.0
 
-      - name: Setup Node.js 20
+      - name: Setup Node.js 22
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
           cache: pnpm
           # 无根 package.json，显式指向前后端 lockfile（提交后即可启用缓存）
           cache-dependency-path: |
@@ -80,10 +80,10 @@ jobs:
         with:
           version: 11.8.0
 
-      - name: Setup Node.js 20
+      - name: Setup Node.js 22
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
           cache: pnpm
           cache-dependency-path: |
             backend/pnpm-lock.yaml

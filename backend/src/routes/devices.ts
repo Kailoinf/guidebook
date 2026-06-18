@@ -91,17 +91,21 @@ devices.put('/:id', adminAuth, async (c) => {
 devices.delete('/:id', adminAuth, async (c) => {
   const id = c.req.param('id');
 
-  // 先删除 R2 中的附件
+  // 1. 查询附件列表
   const { results } = await c.env.DB.prepare(
     'SELECT r2_key FROM attachments WHERE device_id = ?'
   ).bind(id).all<{ r2_key: string }>();
 
-  for (const att of results) {
-    await c.env.BUCKET.delete(att.r2_key);
-  }
+  // 2. 事务性删除数据库记录（attachments + devices 原子执行）
+  await c.env.DB.batch([
+    c.env.DB.prepare('DELETE FROM attachments WHERE device_id = ?').bind(id),
+    c.env.DB.prepare('DELETE FROM devices WHERE id = ?').bind(id),
+  ]);
 
-  // 删除数据库记录
-  await c.env.DB.prepare('DELETE FROM devices WHERE id = ?').bind(id).run();
+  // 3. 并发删除 R2 文件（best-effort，失败不阻塞，DB 一致性优先）
+  await Promise.all(
+    results.map(att => c.env.BUCKET.delete(att.r2_key).catch(() => {}))
+  );
 
   return c.json({ message: '删除成功' });
 });

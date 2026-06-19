@@ -1,22 +1,19 @@
 # 部署指南
 
-本文档描述如何将 Guidebook 部署到 Cloudflare Workers + D1 + R2 + Pages。
+本文档描述如何通过 **Cloudflare Git 集成**部署 Guidebook（无需 GitHub Actions / CI 部署）。
 
 ---
 
 ## 前置条件
 
-- **Node.js** >= 22（推荐 v24）
-- **pnpm** >= 11.8（`corepack enable && corepack prepare pnpm@latest --activate`）
-- **Cloudflare 账号** + API Token（需 Workers、D1、R2、Pages 权限）
-- **wrangler CLI**（`npm i -g wrangler` 或用 `npx wrangler`）
-- 已登录 wrangler：`npx wrangler login`
+- **Node.js** >= 22（本地开发用）
+- **pnpm** >= 11.8
+- **Cloudflare 账号**
+- GitHub 仓库已推送
 
 ---
 
-## 首次部署
-
-只需 **2 步**，无需修改任何代码文件：
+## 首次部署（全在 Cloudflare 控制台操作）
 
 ### 1. 创建 Cloudflare 资源
 
@@ -28,45 +25,56 @@ npx wrangler d1 create guidebook-db
 npx wrangler r2 bucket create guidebook-files
 ```
 
-### 2. 配置 GitHub Secrets
+### 2. 创建 Workers 项目并连接 Git
 
-在仓库 **Settings → Secrets and variables → Actions** 添加 6 个 Secret：
+1. 进入 **Cloudflare Dashboard → Workers & Pages → Create → Workers**
+2. 选择 **Connect to Git**，连接你的 GitHub 仓库
+3. 选择 `guidebook` 仓库
+4. 构建设置：
+   - **Root directory**: `backend`
+   - **Build command**: `pnpm install`
+   - **Deploy command**: `npx wrangler deploy`
+5. 保存
 
-| Secret | 值 |
-|--------|-----|
-| `CLOUDFLARE_API_TOKEN` | Cloudflare API Token（Workers/Pages/D1 权限）|
-| `CLOUDFLARE_ACCOUNT_ID` | Cloudflare Account ID |
-| `D1_DATABASE_ID` | 步骤 1 创建数据库返回的 ID |
-| `FRONTEND_URL` | 前端域名（如 `https://guidebook.pages.dev`）|
-| `JWT_SECRET` | `openssl rand -base64 32` 生成的随机密钥 |
-| `ADMIN_PASSWORD_HASH` | `node scripts/generate-hash.mjs <密码>` 生成的哈希 |
+### 3. 在 Workers 项目设置环境变量
 
-> ✅ 配置完成后，**push 到 main 即自动部署**。CI 会自动：
-> 1. 替换 database_id 占位符
-> 2. 应用 D1 数据库迁移
-> 3. 部署后端到 Workers
-> 4. 部署前端到 Pages
+进入 **Workers → guidebook → Settings → Variables and Secrets**，添加：
+
+| 变量名 | 类型 | 值 |
+|--------|------|-----|
+| `D1_DATABASE_ID` | Plain text | 步骤 1 创建数据库返回的 ID |
+| `FRONTEND_URL` | Plain text | 前端域名（如 `https://guidebook.pages.dev`）|
+| `JWT_SECRET` | Secret（加密）| `openssl rand -base64 32` 生成的随机密钥 |
+| `ADMIN_PASSWORD_HASH` | Secret（加密）| `node scripts/generate-hash.mjs <密码>` 生成的哈希 |
+
+> ⚠️ `wrangler.toml` 中 `database_id = "${D1_DATABASE_ID}"` 会自动从环境变量读取，**无需修改任何文件**。
+
+### 4. 应用数据库迁移
+
+首次部署前，手动执行一次迁移：
+
+```bash
+cd backend
+npx wrangler d1 migrations apply guidebook-db --remote
 ```
+
+### 5. 部署前端到 Pages
+
+1. 进入 **Cloudflare Dashboard → Workers & Pages → Create → Pages**
+2. **Connect to Git**，选择同一仓库
+3. 构建设置：
+   - **Root directory**: `frontend`
+   - **Build command**: `pnpm install && pnpm build`
+   - **Output directory**: `dist`
+4. 保存并部署
+
+5. 部署成功后，把 Pages 域名（如 `https://guidebook.pages.dev`）填回步骤 3 的 `FRONTEND_URL`
 
 ---
 
-## 手动部署（可选）
+## 后续部署
 
-如不使用 CI，也可手动部署：
-
-```bash
-# 后端
-cd backend
-sed -i "s/00000000-0000-0000-0000-000000000000/<你的database_id>/" wrangler.toml
-npx wrangler d1 migrations apply guidebook-db --remote
-npx wrangler deploy --var FRONTEND_URL:"https://你的域名" --var JWT_SECRET:"你的密钥" --var ADMIN_PASSWORD_HASH:"你的哈希"
-
-# 前端
-cd ../frontend
-echo 'VITE_API_BASE=https://guidebook.<subdomain>.workers.dev' > .env.production
-pnpm install && pnpm build
-npx wrangler pages deploy dist --project-name=guidebook
-```
+**完全自动**——push 到 main 分支后，Cloudflare 会自动检测、构建并部署前后端。无需任何手动操作。
 
 ---
 
@@ -101,12 +109,12 @@ curl -I https://<worker-url>/api/health
 cd backend
 cp .dev.vars.example .dev.vars   # 填入本地密钥
 pnpm install
-npx wrangler dev                 # 默认 http://localhost:8787
+npx wrangler dev                 # http://localhost:8787
 
 # 前端（另开终端）
 cd frontend
 pnpm install
-pnpm dev                         # 默认 http://localhost:5173，自动代理到后端
+pnpm dev                         # http://localhost:5173，自动代理到后端
 ```
 
 ### 生成本地密码哈希

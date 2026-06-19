@@ -5,24 +5,22 @@ compatibility_flags = ["nodejs_compat"]
 
 # ============================================
 #  此文件任何人 clone 后无需修改，直接可用。
-#  所有配置都在 Cloudflare 控制台 / GitHub Secrets 中设置：
+#  所有配置都在 Cloudflare 控制台环境变量中设置：
 #
-#    D1_DATABASE_ID       — GitHub Secrets（CI 部署时自动替换下面的占位符）
-#    FRONTEND_URL         — CF 控制台环境变量 / GitHub Secrets
-#    JWT_SECRET           — CF 控制台环境变量 / GitHub Secrets
-#    ADMIN_PASSWORD_HASH  — CF 控制台环境变量 / GitHub Secrets
+#    D1_DATABASE_ID       — CF 控制台环境变量
+#    FRONTEND_URL         — CF 控制台环境变量
+#    JWT_SECRET           — CF 控制台环境变量（Secret）
+#    ADMIN_PASSWORD_HASH  — CF 控制台环境变量（Secret）
 #
-#  本地开发：wrangler dev（用 .dev.vars 文件，本地 D1 自动模拟）
-#  生产部署：push 到 main → CI 自动从 Secrets 读取并部署
+#  本地开发：wrangler dev（配合 .dev.vars 文件，本地 D1 自动模拟）
+#  生产部署：Cloudflare Git 集成（Workers Builds）自动部署
 # ============================================
 
 # D1 数据库
-# database_id 为占位符，CI 部署时自动从 GitHub Secrets 的 D1_DATABASE_ID 替换
-# 本地开发用 wrangler dev 自动模拟，无需真实 ID
 [[d1_databases]]
 binding = "DB"
 database_name = "guidebook-db"
-database_id = "00000000-0000-0000-0000-000000000000"
+database_id = "${D1_DATABASE_ID}"
 migrations_dir = "migrations"
 
 # R2 对象存储 — 存说明书文件

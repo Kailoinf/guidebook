@@ -1,9 +1,8 @@
-name: CI/CD
+name: CI
 
 # ─────────────────────────────────────────────────────────────
-#  guidebook CI/CD
-#  - CI  job : typecheck (backend) + typecheck & build (frontend),  所有分支/PR 跑
-#  - Deploy  : 仅 push 到 main 时，CI 通过后部署到 Cloudflare (Workers + Pages)
+#  guidebook CI — 代码质量检查（类型检查 + 构建）
+#  部署由 Cloudflare Git 集成自动完成，不在此处部署。
 # ─────────────────────────────────────────────────────────────
 
 on:
@@ -12,13 +11,11 @@ on:
   pull_request:
     branches: [main]
 
-# 同一分支的新 run 取消旧 run；main 分支不取消以保证部署串行
 concurrency:
   group: ci-${{ github.ref }}
-  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+  cancel-in-progress: true
 
 jobs:
-  # ──────────────────────────── CI ────────────────────────────
   ci:
     name: Typecheck & Build
     runs-on: ubuntu-latest
@@ -38,12 +35,11 @@ jobs:
         with:
           node-version: '22'
           cache: pnpm
-          # 无根 package.json，显式指向前后端 lockfile（提交后即可启用缓存）
           cache-dependency-path: |
             backend/pnpm-lock.yaml
             frontend/pnpm-lock.yaml
 
-      # ---- Backend：Hono + Workers，只需类型检查（无 build 步骤） ----
+      # ---- Backend：Hono + Workers，只需类型检查 ----
       - name: Install backend dependencies
         working-directory: backend
         run: pnpm install
@@ -52,89 +48,11 @@ jobs:
         working-directory: backend
         run: pnpm exec tsc --noEmit
 
-      # ---- Frontend：Vite，typecheck + 构建 dist/ ----
+      # ---- Frontend：Vite，typecheck + 构建 ----
       - name: Install frontend dependencies
         working-directory: frontend
         run: pnpm install
 
       - name: Frontend typecheck & build
         working-directory: frontend
-        # build 脚本 = tsc --noEmit && vite build
         run: pnpm build
-
-  # ────────────────────────── Deploy ──────────────────────────
-  deploy:
-    name: Deploy to Cloudflare
-    needs: ci
-    # 仅 main 分支的 push 触发（PR 永不部署）
-    if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup pnpm@11.8.0
-        uses: pnpm/action-setup@v3
-        with:
-          version: 11.8.0
-
-      - name: Setup Node.js 22
-        uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-          cache: pnpm
-          cache-dependency-path: |
-            backend/pnpm-lock.yaml
-            frontend/pnpm-lock.yaml
-
-      - name: Install backend dependencies
-        working-directory: backend
-        run: pnpm install
-
-      - name: Install frontend dependencies
-        working-directory: frontend
-        run: pnpm install
-
-      - name: Build frontend (dist/)
-        working-directory: frontend
-        run: pnpm build
-
-      # ---- 部署后端到 Cloudflare Workers ----
-      # secrets 未配置时优雅跳过（bash 内部判断，避免 step if 中直接引用 secrets）
-      # wrangler.toml 不需要手动改：database_id 占位符在部署时自动从 Secrets 替换
-      - name: Deploy backend to Cloudflare Workers
-        working-directory: backend
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          D1_DATABASE_ID: ${{ secrets.D1_DATABASE_ID }}
-          FRONTEND_URL: ${{ secrets.FRONTEND_URL }}
-          JWT_SECRET: ${{ secrets.JWT_SECRET }}
-          ADMIN_PASSWORD_HASH: ${{ secrets.ADMIN_PASSWORD_HASH }}
-        run: |
-          if [ -z "$CLOUDFLARE_API_TOKEN" ] || [ -z "$JWT_SECRET" ] || [ -z "$ADMIN_PASSWORD_HASH" ] || [ -z "$FRONTEND_URL" ] || [ -z "$D1_DATABASE_ID" ]; then
-            echo "Skipped: required secrets not configured"
-            echo "Need: CLOUDFLARE_API_TOKEN, D1_DATABASE_ID, FRONTEND_URL, JWT_SECRET, ADMIN_PASSWORD_HASH"
-            exit 0
-          fi
-          # 自动替换 wrangler.toml 中的 database_id 占位符（无需手动改文件）
-          sed -i "s/00000000-0000-0000-0000-000000000000/$D1_DATABASE_ID/" wrangler.toml
-          # 应用数据库迁移
-          npx wrangler d1 migrations apply guidebook-db --remote
-          # 部署（环境变量通过 --var 注入，不写入文件）
-          npx wrangler deploy --var FRONTEND_URL:"$FRONTEND_URL" --var JWT_SECRET:"$JWT_SECRET" --var ADMIN_PASSWORD_HASH:"$ADMIN_PASSWORD_HASH"
-
-      # ---- 部署前端到 Cloudflare Pages ----
-      - name: Deploy frontend to Cloudflare Pages
-        working-directory: backend
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-        run: |
-          if [ -z "$CLOUDFLARE_API_TOKEN" ]; then
-            echo "Skipped: CLOUDFLARE_API_TOKEN not configured"
-            exit 0
-          fi
-          npx wrangler pages deploy ../frontend/dist --project-name=guidebook

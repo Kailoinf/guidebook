@@ -74,7 +74,7 @@ devices.get('/:id', async (c) => {
 // ============================================
 
 // GET /api/devices —— 列表（管理员）
-devices.get('/', async (c) => {
+devices.get('/', adminAuth, async (c) => {
   const { results } = await c.env.DB.prepare(
     'SELECT id, name, model, category, location, created_at, updated_at FROM devices ORDER BY updated_at DESC'
   ).all();

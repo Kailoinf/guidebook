@@ -31,6 +31,7 @@ async function getKey(secret: string): Promise<CryptoKey> {
 }
 
 export async function sign(payload: object, secret: string, expiresInHours = 24): Promise<string> {
+  if (!secret) throw new Error('JWT_SECRET is not configured');
   const header = { alg: 'HS256', typ: 'JWT' };
   const now = Math.floor(Date.now() / 1000);
   const fullPayload = { ...payload, iat: now, exp: now + expiresInHours * 3600 };
@@ -47,6 +48,7 @@ export async function sign(payload: object, secret: string, expiresInHours = 24)
 }
 
 export async function verify(token: string, secret: string): Promise<object | null> {
+  if (!secret) throw new Error('JWT_SECRET is not configured');
   const parts = token.split('.');
   if (parts.length !== 3) return null;
 

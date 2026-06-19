@@ -27,35 +27,37 @@ npx wrangler d1 create guidebook-db
 npx wrangler r2 bucket create guidebook-files
 ```
 
-### 2. 更新 wrangler.toml
+### 2. 更新 wrangler.toml（仅 database_id）
 
-打开 `backend/wrangler.toml`，修改：
+打开 `backend/wrangler.toml`，只需改一处——把 database_id 占位符换成真实值：
 
 ```toml
-[vars]
-FRONTEND_URL = "https://<你的前端域名>"   # 如 https://guidebook.pages.dev
-
 [[d1_databases]]
 database_id = "<步骤1返回的真实 database_id>"
 ```
 
-### 3. 设置密钥（Secrets）
+> ⚠️ wrangler.toml 不包含任何密钥或环境变量，全部在 CF 控制台设置。
+
+### 3. 在 Cloudflare 控制台设置环境变量
+
+进入 **Cloudflare Dashboard → Workers & Pages → guidebook → Settings → Variables and Secrets**，添加以下 3 个变量（全部选 **Secret** / Encrypt）：
+
+| 变量名 | 值 | 说明 |
+|--------|-----|------|
+| `FRONTEND_URL` | `https://你的前端域名` | 前端地址（如 `https://guidebook.pages.dev`）|
+| `JWT_SECRET` | 随机字符串 | `openssl rand -base64 32` 生成 |
+| `ADMIN_PASSWORD_HASH` | `salt:hash` | `node scripts/generate-hash.mjs <密码>` 生成 |
+
+也可以用命令行设置（效果相同）：
 
 ```bash
 cd backend
-
-# JWT 密钥（随机字符串，至少 32 字节）
+npx wrangler secret put FRONTEND_URL
 npx wrangler secret put JWT_SECRET
-# 输入一个强随机值，如：openssl rand -base64 32
-
-# 管理员密码哈希（PBKDF2 格式）
-# 先用脚本生成哈希：
-node ../scripts/generate-hash.mjs <你的密码>
-# 把输出的 salt:hash 字符串设为 secret
 npx wrangler secret put ADMIN_PASSWORD_HASH
 ```
 
-> ⚠️ 不要把密钥写进 wrangler.toml 或提交到 git。
+> ⚠️ 所有 key 只在 CF 控制台或 `wrangler secret put` 中设置，绝不写进 wrangler.toml。
 
 ### 4. 应用数据库迁移
 
@@ -115,6 +117,7 @@ npx wrangler pages deploy dist --project-name=guidebook
 |--------|------|
 | `CLOUDFLARE_API_TOKEN` | Cloudflare API Token（Workers/Pages 权限）|
 | `CLOUDFLARE_ACCOUNT_ID` | Cloudflare Account ID |
+| `FRONTEND_URL` | 前端生产域名（如 `https://guidebook.pages.dev`）|
 | `JWT_SECRET` | JWT 签名密钥（强随机字符串）|
 | `ADMIN_PASSWORD_HASH` | 管理员密码的 PBKDF2 哈希 |
 

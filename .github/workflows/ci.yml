@@ -108,14 +108,16 @@ jobs:
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          FRONTEND_URL: ${{ secrets.FRONTEND_URL }}
           JWT_SECRET: ${{ secrets.JWT_SECRET }}
-          ADMIN_PASSWORD: ${{ secrets.ADMIN_PASSWORD }}
+          ADMIN_PASSWORD_HASH: ${{ secrets.ADMIN_PASSWORD_HASH }}
         run: |
-          if [ -z "$CLOUDFLARE_API_TOKEN" ] || [ -z "$JWT_SECRET" ] || [ -z "$ADMIN_PASSWORD" ]; then
+          if [ -z "$CLOUDFLARE_API_TOKEN" ] || [ -z "$JWT_SECRET" ] || [ -z "$ADMIN_PASSWORD_HASH" ] || [ -z "$FRONTEND_URL" ]; then
             echo "Skipped: required secrets not configured"
+            echo "Need: CLOUDFLARE_API_TOKEN, FRONTEND_URL, JWT_SECRET, ADMIN_PASSWORD_HASH"
             exit 0
           fi
-          npx wrangler deploy --var JWT_SECRET:"$JWT_SECRET" --var ADMIN_PASSWORD:"$ADMIN_PASSWORD"
+          npx wrangler deploy --var FRONTEND_URL:"$FRONTEND_URL" --var JWT_SECRET:"$JWT_SECRET" --var ADMIN_PASSWORD_HASH:"$ADMIN_PASSWORD_HASH"
 
       # ---- 部署前端到 Cloudflare Pages ----
       - name: Deploy frontend to Cloudflare Pages

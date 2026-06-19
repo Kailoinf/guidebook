@@ -18,6 +18,9 @@ compatibility_flags = ["nodejs_compat"]
 binding = "DB"
 database_name = "guidebook-db"
 # 部署前替换为真实 ID：npx wrangler d1 create guidebook-db
+# ⚠️ 占位符 — 部署前必须替换为真实值，否则 wrangler deploy 会失败
+# 用 \`npx wrangler d1 create guidebook-db\` 创建数据库后，把返回的 ID 填到下面
+# 或者用环境变量：\`export WRANGLER_D1_DATABASE_ID=<真实ID>\` 并用 ${WRANGLER_D1_DATABASE_ID}
 database_id = "00000000-0000-0000-0000-000000000000"
 migrations_dir = "migrations"
 

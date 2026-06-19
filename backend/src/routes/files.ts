@@ -80,9 +80,16 @@ files.get('/:id', async (c) => {
     return c.json({ error: '文件不存在' }, 404);
   }
 
+  const mimeType = att.mime_type || 'application/octet-stream';
+  const inlineTypes = new Set([
+    'image/jpeg', 'image/png', 'image/webp', 'image/gif', 'application/pdf',
+  ]);
+  const disposition = inlineTypes.has(mimeType) ? 'inline' : 'attachment';
+
   const headers = new Headers();
-  headers.set('Content-Type', att.mime_type || 'application/octet-stream');
-  headers.set('Content-Disposition', `inline; filename="${att.filename}"`);
+  headers.set('Content-Type', mimeType);
+  headers.set('Content-Disposition', `${disposition}; filename="${att.filename}"`);
+  headers.set('Cache-Control', 'public, max-age=31536000, immutable');
 
   return new Response(object.body, { headers });
 });

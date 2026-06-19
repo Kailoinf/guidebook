@@ -43,7 +43,7 @@ guidebook/
 │   ├── src/
 │   ├── migrations/   # D1 SQL
 │   └── wrangler.toml
-├── frontend/         # Vue 3 SPA
+├── frontend/         # TypeScript + Vite (vanilla，无框架)
 │   └── src/
 └── README.md
 ```

@@ -37,7 +37,7 @@ app.notFound((c) => c.json({ error: '接口不存在' }, 404));
 
 // 全局错误处理
 app.onError((err, c) => {
-  console.error(err);
+  console.error(`[${c.req.method}] ${c.req.path}`, err);
   return c.json({ error: '服务器内部错误' }, 500);
 });
 

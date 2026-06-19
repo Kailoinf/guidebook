@@ -103,20 +103,27 @@ jobs:
 
       # ---- 部署后端到 Cloudflare Workers ----
       # secrets 未配置时优雅跳过（bash 内部判断，避免 step if 中直接引用 secrets）
+      # wrangler.toml 不需要手动改：database_id 占位符在部署时自动从 Secrets 替换
       - name: Deploy backend to Cloudflare Workers
         working-directory: backend
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          D1_DATABASE_ID: ${{ secrets.D1_DATABASE_ID }}
           FRONTEND_URL: ${{ secrets.FRONTEND_URL }}
           JWT_SECRET: ${{ secrets.JWT_SECRET }}
           ADMIN_PASSWORD_HASH: ${{ secrets.ADMIN_PASSWORD_HASH }}
         run: |
-          if [ -z "$CLOUDFLARE_API_TOKEN" ] || [ -z "$JWT_SECRET" ] || [ -z "$ADMIN_PASSWORD_HASH" ] || [ -z "$FRONTEND_URL" ]; then
+          if [ -z "$CLOUDFLARE_API_TOKEN" ] || [ -z "$JWT_SECRET" ] || [ -z "$ADMIN_PASSWORD_HASH" ] || [ -z "$FRONTEND_URL" ] || [ -z "$D1_DATABASE_ID" ]; then
             echo "Skipped: required secrets not configured"
-            echo "Need: CLOUDFLARE_API_TOKEN, FRONTEND_URL, JWT_SECRET, ADMIN_PASSWORD_HASH"
+            echo "Need: CLOUDFLARE_API_TOKEN, D1_DATABASE_ID, FRONTEND_URL, JWT_SECRET, ADMIN_PASSWORD_HASH"
             exit 0
           fi
+          # 自动替换 wrangler.toml 中的 database_id 占位符（无需手动改文件）
+          sed -i "s/00000000-0000-0000-0000-000000000000/$D1_DATABASE_ID/" wrangler.toml
+          # 应用数据库迁移
+          npx wrangler d1 migrations apply guidebook-db --remote
+          # 部署（环境变量通过 --var 注入，不写入文件）
           npx wrangler deploy --var FRONTEND_URL:"$FRONTEND_URL" --var JWT_SECRET:"$JWT_SECRET" --var ADMIN_PASSWORD_HASH:"$ADMIN_PASSWORD_HASH"
 
       # ---- 部署前端到 Cloudflare Pages ----

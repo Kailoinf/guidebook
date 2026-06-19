@@ -4,25 +4,24 @@ compatibility_date = "2025-09-01"
 compatibility_flags = ["nodejs_compat"]
 
 # ============================================
-#  所有环境变量 / 密钥都在 Cloudflare 控制台或 .dev.vars 中设置
-#  此文件只声明资源绑定（D1 / R2），不包含任何 key 或敏感配置
+#  此文件任何人 clone 后无需修改，直接可用。
+#  所有配置都在 Cloudflare 控制台 / GitHub Secrets 中设置：
 #
-#  本地开发：wrangler dev --local（配合 .dev.vars 文件）
-#  生产部署前：
-#    1. npx wrangler d1 create guidebook-db → 把返回的 database_id 填到下面
-#    2. npx wrangler r2 bucket create guidebook-files
-#    3. 在 CF 控制台 → Workers → Settings → Variables 设置环境变量：
-#         FRONTEND_URL        = https://你的前端域名
-#         JWT_SECRET          = 随机密钥（openssl rand -base64 32）
-#         ADMIN_PASSWORD_HASH = node scripts/generate-hash.mjs 生成的哈希
-#       或用命令：npx wrangler secret put <变量名>
+#    D1_DATABASE_ID       — GitHub Secrets（CI 部署时自动替换下面的占位符）
+#    FRONTEND_URL         — CF 控制台环境变量 / GitHub Secrets
+#    JWT_SECRET           — CF 控制台环境变量 / GitHub Secrets
+#    ADMIN_PASSWORD_HASH  — CF 控制台环境变量 / GitHub Secrets
+#
+#  本地开发：wrangler dev（用 .dev.vars 文件，本地 D1 自动模拟）
+#  生产部署：push 到 main → CI 自动从 Secrets 读取并部署
 # ============================================
 
 # D1 数据库
+# database_id 为占位符，CI 部署时自动从 GitHub Secrets 的 D1_DATABASE_ID 替换
+# 本地开发用 wrangler dev 自动模拟，无需真实 ID
 [[d1_databases]]
 binding = "DB"
 database_name = "guidebook-db"
-# 部署前替换为真实 ID：npx wrangler d1 create guidebook-db
 database_id = "00000000-0000-0000-0000-000000000000"
 migrations_dir = "migrations"
 

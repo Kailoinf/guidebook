@@ -16,112 +16,57 @@
 
 ## 首次部署
 
+只需 **2 步**，无需修改任何代码文件：
+
 ### 1. 创建 Cloudflare 资源
 
 ```bash
-# 创建 D1 数据库
+# 创建 D1 数据库（记下输出的 database_id）
 npx wrangler d1 create guidebook-db
-# 记下输出的 database_id，下一步要用
 
 # 创建 R2 桶
 npx wrangler r2 bucket create guidebook-files
 ```
 
-### 2. 更新 wrangler.toml（仅 database_id）
+### 2. 配置 GitHub Secrets
 
-打开 `backend/wrangler.toml`，只需改一处——把 database_id 占位符换成真实值：
+在仓库 **Settings → Secrets and variables → Actions** 添加 6 个 Secret：
 
-```toml
-[[d1_databases]]
-database_id = "<步骤1返回的真实 database_id>"
-```
+| Secret | 值 |
+|--------|-----|
+| `CLOUDFLARE_API_TOKEN` | Cloudflare API Token（Workers/Pages/D1 权限）|
+| `CLOUDFLARE_ACCOUNT_ID` | Cloudflare Account ID |
+| `D1_DATABASE_ID` | 步骤 1 创建数据库返回的 ID |
+| `FRONTEND_URL` | 前端域名（如 `https://guidebook.pages.dev`）|
+| `JWT_SECRET` | `openssl rand -base64 32` 生成的随机密钥 |
+| `ADMIN_PASSWORD_HASH` | `node scripts/generate-hash.mjs <密码>` 生成的哈希 |
 
-> ⚠️ wrangler.toml 不包含任何密钥或环境变量，全部在 CF 控制台设置。
-
-### 3. 在 Cloudflare 控制台设置环境变量
-
-进入 **Cloudflare Dashboard → Workers & Pages → guidebook → Settings → Variables and Secrets**，添加以下 3 个变量（全部选 **Secret** / Encrypt）：
-
-| 变量名 | 值 | 说明 |
-|--------|-----|------|
-| `FRONTEND_URL` | `https://你的前端域名` | 前端地址（如 `https://guidebook.pages.dev`）|
-| `JWT_SECRET` | 随机字符串 | `openssl rand -base64 32` 生成 |
-| `ADMIN_PASSWORD_HASH` | `salt:hash` | `node scripts/generate-hash.mjs <密码>` 生成 |
-
-也可以用命令行设置（效果相同）：
-
-```bash
-cd backend
-npx wrangler secret put FRONTEND_URL
-npx wrangler secret put JWT_SECRET
-npx wrangler secret put ADMIN_PASSWORD_HASH
-```
-
-> ⚠️ 所有 key 只在 CF 控制台或 `wrangler secret put` 中设置，绝不写进 wrangler.toml。
-
-### 4. 应用数据库迁移
-
-```bash
-cd backend
-
-# 应用所有迁移到远程 D1
-npx wrangler d1 migrations apply guidebook-db --remote
-```
-
-或手动逐个执行：
-
-```bash
-npx wrangler d1 execute guidebook-db --remote --file=migrations/0001_init.sql
-npx wrangler d1 execute guidebook-db --remote --file=migrations/0002_login_attempts.sql
-npx wrangler d1 execute guidebook-db --remote --file=migrations/0003_indexes.sql
-```
-
-### 5. 部署后端到 Workers
-
-```bash
-cd backend
-pnpm install
-npx wrangler deploy
-# 记下输出的 Worker URL，如 https://guidebook.<subdomain>.workers.dev
-```
-
-### 6. 部署前端到 Pages
-
-```bash
-cd frontend
-
-# 设置生产环境 API 地址（指向后端 Worker URL）
-echo 'VITE_API_BASE=https://guidebook.<subdomain>.workers.dev' > .env.production
-
-pnpm install
-pnpm build
-
-# 部署到 Cloudflare Pages
-npx wrangler pages deploy dist --project-name=guidebook
+> ✅ 配置完成后，**push 到 main 即自动部署**。CI 会自动：
+> 1. 替换 database_id 占位符
+> 2. 应用 D1 数据库迁移
+> 3. 部署后端到 Workers
+> 4. 部署前端到 Pages
 ```
 
 ---
 
-## CI/CD 自动部署
+## 手动部署（可选）
 
-仓库已配置 GitHub Actions（`.github/workflows/ci.yml`）：
+如不使用 CI，也可手动部署：
 
-- **push 到 main** → 自动构建 + 部署到 Cloudflare
-- **其他分支** → 仅运行 typecheck + build 检查
+```bash
+# 后端
+cd backend
+sed -i "s/00000000-0000-0000-0000-000000000000/<你的database_id>/" wrangler.toml
+npx wrangler d1 migrations apply guidebook-db --remote
+npx wrangler deploy --var FRONTEND_URL:"https://你的域名" --var JWT_SECRET:"你的密钥" --var ADMIN_PASSWORD_HASH:"你的哈希"
 
-### 配置 GitHub Secrets
-
-在仓库 **Settings → Secrets and variables → Actions** 添加：
-
-| Secret | 说明 |
-|--------|------|
-| `CLOUDFLARE_API_TOKEN` | Cloudflare API Token（Workers/Pages 权限）|
-| `CLOUDFLARE_ACCOUNT_ID` | Cloudflare Account ID |
-| `FRONTEND_URL` | 前端生产域名（如 `https://guidebook.pages.dev`）|
-| `JWT_SECRET` | JWT 签名密钥（强随机字符串）|
-| `ADMIN_PASSWORD_HASH` | 管理员密码的 PBKDF2 哈希 |
-
-配置后，push 到 main 即自动部署。
+# 前端
+cd ../frontend
+echo 'VITE_API_BASE=https://guidebook.<subdomain>.workers.dev' > .env.production
+pnpm install && pnpm build
+npx wrangler pages deploy dist --project-name=guidebook
+```
 
 ---
 

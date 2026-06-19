@@ -1,6 +1,7 @@
 import { Hono } from 'hono';
 import type { Env } from '../types';
 import { sign, verify } from '../utils/jwt';
+import { verifyPassword } from '../utils/password';
 
 const auth = new Hono<{ Bindings: Env }>();
 
@@ -65,7 +66,11 @@ auth.post('/login', async (c) => {
 
   const { password } = await c.req.json();
 
-  if (!password || password !== c.env.ADMIN_PASSWORD) {
+  if (!c.env.ADMIN_PASSWORD_HASH) {
+    return c.json({ error: '服务器未配置管理员密码哈希，请联系管理员' }, 500);
+  }
+
+  if (!password || !(await verifyPassword(password, c.env.ADMIN_PASSWORD_HASH))) {
     // 登录失败 —— 检查并更新速率限制
     const { blocked, retryAfter } = await checkRateLimit(c.env.DB, ip, now);
 

@@ -9,7 +9,7 @@ compatibility_flags = ["nodejs_compat"]
 #    1. 运行 `npx wrangler d1 create guidebook-db` 获取真实 database_id 替换下面占位符
 #    2. 运行 `npx wrangler r2 bucket create guidebook-files` 创建 R2 bucket
 #    3. 运行 `npx wrangler secret put JWT_SECRET` 设置 JWT 密钥
-#    4. 运行 `npx wrangler secret put ADMIN_PASSWORD` 设置管理员密码
+#    4. 运行 `npx wrangler secret put ADMIN_PASSWORD_HASH` 设置管理员密码哈希
 #    5. 修改 [vars] FRONTEND_URL 为生产前端域名
 # ============================================
 
@@ -30,5 +30,6 @@ bucket_name = "guidebook-files"
 [vars]
 # 生产环境改为 https://guidebook.pages.dev 或自定义域名
 FRONTEND_URL = "http://localhost:5173"
-# JWT_SECRET 和 ADMIN_PASSWORD 用 .dev.vars 文件（本地）或
+# JWT_SECRET 和 ADMIN_PASSWORD_HASH 用 .dev.vars 文件（本地）或
 # `wrangler secret put`（生产）设置，不要写在这里
+# ADMIN_PASSWORD_HASH 格式：salt:hash（hex），使用 `node scripts/generate-hash.mjs <密码>` 生成

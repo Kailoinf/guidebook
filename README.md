@@ -18,7 +18,22 @@
 | 前端 | TypeScript + Vite |
 | 数据库 | Cloudflare D1 (SQLite) |
 | 存储 | Cloudflare R2 |
-| 认证 | JWT |
+| 认证 | JWT + PBKDF2 密码哈希 |
+
+## 本地开发
+
+在 `backend/` 目录下创建 `.dev.vars` 文件：
+
+```
+JWT_SECRET=your-secret-here
+ADMIN_PASSWORD_HASH=<hash>
+```
+
+其中 `ADMIN_PASSWORD_HASH` 使用脚本生成：
+
+```bash
+node scripts/generate-hash.mjs <你的管理员密码>
+```
 
 ## 项目结构
 

@@ -47,15 +47,20 @@ files.post('/:deviceId', adminAuth, async (c) => {
   const ext = parts.length < 2 || file.name.startsWith('.') ? 'bin' : parts.pop()!;
   const r2Key = `attachments/${deviceId}/${id}.${ext}`;
 
-  // 上传到 R2
-  await c.env.BUCKET.put(r2Key, file.stream(), {
-    httpMetadata: { contentType: file.type },
-  });
-
-  // 记录到数据库
+  // 先写入数据库，保证数据一致性
   await c.env.DB.prepare(
     'INSERT INTO attachments (id, device_id, filename, r2_key, mime_type, size) VALUES (?, ?, ?, ?, ?, ?)'
   ).bind(id, deviceId, file.name, r2Key, file.type, file.size).run();
+
+  // 再上传到 R2，失败则回滚 DB 记录
+  try {
+    await c.env.BUCKET.put(r2Key, file.stream(), {
+      httpMetadata: { contentType: file.type },
+    });
+  } catch (e) {
+    await c.env.DB.prepare('DELETE FROM attachments WHERE id = ?').bind(id).run();
+    throw e;
+  }
 
   return c.json({ id, filename: file.name, size: file.size, message: '上传成功' }, 201);
 });

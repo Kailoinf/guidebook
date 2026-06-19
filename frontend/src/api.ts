@@ -101,7 +101,7 @@ export const devicesApi = {
     return request(`/devices/${id}`, { method: 'DELETE', auth: true });
   },
   // 管理员：获取二维码 URL
-  qrcode(id: string): Promise<{ id: string; url: string; qrcode_url: string }> {
+  qrcode(id: string): Promise<{ id: string; url: string }> {
     return request(`/devices/${id}/qrcode`, { auth: true });
   },
 };

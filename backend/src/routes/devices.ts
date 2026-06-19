@@ -153,11 +153,11 @@ devices.delete('/:id', adminAuth, async (c) => {
   return c.json({ message: '删除成功' });
 });
 
-// GET /api/devices/:id/qrcode —— 获取二维码（返回 URL，前端生成或后端生成 SVG）
+// GET /api/devices/:id/qrcode —— 获取设备扫码 URL（前端自行生成二维码）
 devices.get('/:id/qrcode', adminAuth, async (c) => {
   const id = c.req.param('id');
   const url = `${c.env.FRONTEND_URL}/#/d/${id}`;
-  return c.json({ id, url, qrcode_url: url });
+  return c.json({ id, url });
 });
 
 export default devices;

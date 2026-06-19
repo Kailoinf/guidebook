@@ -2,6 +2,7 @@
 import { authApi, devicesApi, filesApi, ApiError } from '../api';
 import type { Device, Attachment } from '../api';
 import { navigate } from '../router';
+import { generateQrDataUrl } from '../qrcode';
 
 function el<K extends keyof HTMLElementTagNameMap>(
   tag: K,
@@ -339,16 +340,38 @@ async function renderQrCode(container: HTMLElement, device: Device): Promise<voi
 
   try {
     const res = await devicesApi.qrcode(device.id);
+    const qrDataUrl = generateQrDataUrl(res.url);
+
     card.innerHTML = '';
+
+    // 二维码图片
     const img = el('img');
-    img.src = res.qrcode_url;
+    img.src = qrDataUrl;
     img.alt = `${device.name} 二维码`;
+    img.style.maxWidth = '100%';
     card.appendChild(img);
-    const link = el('a', { className: 'btn btn-outline btn-sm mt-4', text: '打开查看页' });
+
+    // 操作按钮行
+    const actions = el('div', { className: 'flex gap-2 mt-4 justify-center' });
+
+    // 打开查看页
+    const link = el('a', { className: 'btn btn-primary btn-sm', text: '打开查看页' });
     link.href = res.url;
     link.target = '_blank';
     link.rel = 'noopener noreferrer';
-    card.appendChild(link);
+    actions.appendChild(link);
+
+    // 下载 SVG
+    const downloadBtn = el('button', { className: 'btn btn-outline btn-sm', text: '下载二维码' });
+    downloadBtn.addEventListener('click', () => {
+      const a = document.createElement('a');
+      a.href = qrDataUrl;
+      a.download = `qrcode-${device.id}.svg`;
+      a.click();
+    });
+    actions.appendChild(downloadBtn);
+
+    card.appendChild(actions);
   } catch (e) {
     const err = e as ApiError;
     card.innerHTML = '';

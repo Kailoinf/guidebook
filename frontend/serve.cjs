@@ -32,7 +32,14 @@ function proxy(req, res) {
 const server = http.createServer((req, res) => {
   if (req.url.startsWith('/api/') || req.url === '/api') return proxy(req, res);
   let urlPath = req.url.split('?')[0];
+  // 路径遍历防护：规范化 + 确保结果在 ROOT 内
+  urlPath = path.normalize(urlPath).replace(/^(\.\.(\/|\\|$))+/, '');
   let filePath = path.join(ROOT, urlPath === '/' || urlPath === '' ? 'index.html' : urlPath);
+  if (!filePath.startsWith(ROOT)) {
+    res.writeHead(403);
+    res.end('forbidden');
+    return;
+  }
   fs.stat(filePath, (err, stat) => {
     if (err || !stat.isFile()) {
       const hasExt = path.extname(urlPath).length > 0;
